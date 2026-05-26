@@ -149,14 +149,30 @@ function initAudio() {
 }
 
 // Ensure Audio starts on user interaction
-document.addEventListener('click', function autoInit() {
-    if (state.audioCtx && state.audioCtx.state === 'running') {
-        document.removeEventListener('click', autoInit);
-        return;
-    }
-    // Only attempt if elements are clicked or page interactions start
-    if (event.target.closest('#btn-audio-init') || event.target.closest('.piano-key-white') || event.target.closest('.piano-key-black')) {
+function triggerAudioInit(e) {
+    if (!state.audioCtx) {
         initAudio();
+    } else if (state.audioCtx.state === 'suspended') {
+        state.audioCtx.resume();
+    }
+}
+
+// Add multiple robust listeners for initializing audio context
+document.addEventListener('click', (e) => {
+    if (e.target && (e.target.closest('#btn-audio-init') || e.target.closest('.piano-key'))) {
+        triggerAudioInit(e);
+    }
+});
+
+document.addEventListener('touchstart', (e) => {
+    if (e.target && (e.target.closest('.piano-key') || e.target.closest('#btn-audio-init'))) {
+        triggerAudioInit(e);
+    }
+}, { passive: true });
+
+document.addEventListener('mousedown', (e) => {
+    if (e.target && (e.target.closest('.piano-key') || e.target.closest('#btn-audio-init'))) {
+        triggerAudioInit(e);
     }
 });
 
@@ -712,9 +728,24 @@ function attachKeyInteractionListeners() {
     const keys = document.querySelectorAll('.piano-key');
     let isMouseDown = false;
     
-    // Mouse down listener globally to capture glissando across keys
-    document.addEventListener('mousedown', () => { isMouseDown = true; });
-    document.addEventListener('mouseup', () => { isMouseDown = false; });
+    // 1. Mouse Event Listeners (Glissando & triggers)
+    document.addEventListener('mousedown', (e) => {
+        if (e.target.closest('.piano-key')) {
+            isMouseDown = true;
+            triggerAudioInit(e);
+        }
+    });
+    
+    document.addEventListener('mouseup', () => {
+        isMouseDown = false;
+        keys.forEach(key => {
+            if (key.getAttribute('data-pressed') === 'true') {
+                key.setAttribute('data-pressed', 'false');
+                const midi = parseInt(key.getAttribute('data-midi'));
+                stopNote(midi);
+            }
+        });
+    });
     
     keys.forEach(key => {
         const midi = parseInt(key.getAttribute('data-midi'));
@@ -739,43 +770,17 @@ function attachKeyInteractionListeners() {
             key.setAttribute('data-pressed', 'false');
             stopNote(midi);
         });
-        
-        key.addEventListener('mouseup', () => {
-            key.setAttribute('data-pressed', 'false');
-            stopNote(midi);
-        });
-        
-        // Multi-touch Events (for classroom iPad/tablet support)
-        key.addEventListener('touchstart', (e) => {
-            e.preventDefault(); // Prevents double click triggers
-            key.setAttribute('data-pressed', 'true');
-            playNote(midi);
-        });
-        
-        key.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            key.setAttribute('data-pressed', 'false');
-            stopNote(midi);
-        });
-        
-        key.addEventListener('touchcancel', (e) => {
-            e.preventDefault();
-            key.setAttribute('data-pressed', 'false');
-            stopNote(midi);
-        });
     });
-
-    // Touch Glissando Support: Dragging fingers across keys
-    const viewport = document.getElementById('piano-viewport');
-    viewport.addEventListener('touchmove', (e) => {
-        e.preventDefault();
-        
-        // Find keys currently under the touch coordinates
-        const touches = e.touches;
+    
+    // 2. High-Performance Unified Touch Drag Tracker (iPad & Tablet glissando support)
+    const keyboardContainer = document.getElementById('piano-keyboard');
+    
+    function handleTouchSwipe(e) {
         const currentMidiTouched = new Set();
         
-        for (let i = 0; i < touches.length; i++) {
-            const touch = touches[i];
+        // Find all keys currently under active finger coordinates
+        for (let i = 0; i < e.touches.length; i++) {
+            const touch = e.touches[i];
             const element = document.elementFromPoint(touch.clientX, touch.clientY);
             const keyEl = element ? element.closest('.piano-key') : null;
             
@@ -790,7 +795,7 @@ function attachKeyInteractionListeners() {
             }
         }
         
-        // Release keys that are no longer touched
+        // Stop notes for keys that are no longer touched
         keys.forEach(key => {
             const midi = parseInt(key.getAttribute('data-midi'));
             if (key.getAttribute('data-pressed') === 'true' && !currentMidiTouched.has(midi)) {
@@ -798,6 +803,27 @@ function attachKeyInteractionListeners() {
                 stopNote(midi);
             }
         });
+    }
+    
+    keyboardContainer.addEventListener('touchstart', (e) => {
+        e.preventDefault(); // Stop mobile browser scrolling/zooming on the keyboard
+        triggerAudioInit(e);
+        handleTouchSwipe(e);
+    }, { passive: false });
+    
+    keyboardContainer.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        handleTouchSwipe(e);
+    }, { passive: false });
+    
+    keyboardContainer.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        handleTouchSwipe(e);
+    }, { passive: false });
+    
+    keyboardContainer.addEventListener('touchcancel', (e) => {
+        e.preventDefault();
+        handleTouchSwipe(e);
     }, { passive: false });
 }
 
