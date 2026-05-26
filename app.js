@@ -89,11 +89,10 @@ function initAudio() {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         state.audioCtx = new AudioContextClass();
         
-        // 1. Master Output Chain
+        // 1. Create all Audio Nodes first
         state.masterGain = state.audioCtx.createGain();
         state.masterGain.gain.value = 0.8; // Default volume 80%
 
-        // 2. Dynamics Limiter to prevent classroom audio clipping
         state.limiterNode = state.audioCtx.createDynamicsCompressor();
         state.limiterNode.threshold.value = -1.0; // dB
         state.limiterNode.knee.value = 8;
@@ -101,31 +100,24 @@ function initAudio() {
         state.limiterNode.attack.value = 0.003; // seconds
         state.limiterNode.release.value = 0.1;
 
-        // 3. Stereo Convolution Reverb Nodes Setup
         state.reverbNode = state.audioCtx.createConvolver();
         state.reverbWetGain = state.audioCtx.createGain();
         state.reverbDryGain = state.audioCtx.createGain();
-        
-        // Reverb Routing
-        // Synth Output -> reverbDryGain -> masterGain
-        // Synth Output -> reverbNode -> reverbWetGain -> masterGain
         state.reverbWetGain.gain.value = state.reverbWet;
         state.reverbDryGain.gain.value = 1 - state.reverbWet;
         
-        // 4. Generate & load the Custom Algorithmic Reverb Impulse Response
-        generateImpulseResponse();
-
-        // 5. Connect Audio Nodes
-        state.reverbNode.connect(state.reverbWetGain);
-        
-        // Connection node representing output of synthesizers
         state.synthOutput = state.audioCtx.createGain();
         state.synthOutput.gain.value = 1.0;
-        
+
+        // 2. Generate and load the Reverb Impulse Response (Safe now because synthOutput exists!)
+        generateImpulseResponse();
+
+        // 3. Connect all Nodes
         state.synthOutput.connect(state.reverbDryGain);
-        state.synthOutput.connect(state.reverbNode);
-        
         state.reverbDryGain.connect(state.masterGain);
+        
+        state.synthOutput.connect(state.reverbNode);
+        state.reverbNode.connect(state.reverbWetGain);
         state.reverbWetGain.connect(state.masterGain);
         
         state.masterGain.connect(state.limiterNode);
@@ -225,9 +217,11 @@ function generateImpulseResponse() {
     state.reverbNode = state.audioCtx.createConvolver();
     state.reverbNode.buffer = impulseBuffer;
     
-    // Reconnect
-    state.synthOutput.connect(state.reverbNode);
-    state.reverbNode.connect(state.reverbWetGain);
+    // Reconnect with defensive safeguards
+    if (state.synthOutput && state.reverbWetGain) {
+        state.synthOutput.connect(state.reverbNode);
+        state.reverbNode.connect(state.reverbWetGain);
+    }
 }
 
 function updateReverbSettings() {
