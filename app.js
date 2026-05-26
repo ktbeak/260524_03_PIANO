@@ -272,26 +272,9 @@ class Voice {
     }
     
     triggerGrandPiano(now) {
-        // Grand Piano - Realistic Hammer Strike & Decaying String Resonance
+        // Grand Piano - Pure Decaying String Resonance (Removed hammer click for warm clean tone)
         
-        // 1. Attack Click (Hammer action simulation)
-        // Highpass filtered noise burst + short high sine wave
-        const strikeOsc = this.ctx.createOscillator();
-        strikeOsc.type = 'sine';
-        strikeOsc.frequency.setValueAtTime(this.freq * 12, now); // Metallic high frequency strike
-        
-        const strikeGain = this.ctx.createGain();
-        strikeGain.gain.setValueAtTime(0.35, now);
-        strikeGain.gain.exponentialRampToValueAtTime(0.001, now + 0.03); // extremely fast strike decay
-        
-        strikeOsc.connect(strikeGain);
-        strikeGain.connect(this.voiceGainNode);
-        strikeOsc.start(now);
-        strikeOsc.stop(now + 0.05);
-        this.oscillators.push(strikeOsc);
-        this.gains.push(strikeGain);
-        
-        // 2. Multiphonic Overtones & Micro-detuning (Authentic Intonation)
+        // Multiphonic Overtones & Micro-detuning (Authentic Intonation)
         // Acoustic piano strings are slightly detuned (stretched tuning)
         // We use 3 oscillators with micro cents detune to create this rich texture
         const overtones = [
@@ -314,8 +297,8 @@ class Voice {
             
             const oscGain = this.ctx.createGain();
             oscGain.gain.setValueAtTime(0, now);
-            // Dynamic attack for rich velocity simulation
-            oscGain.gain.linearRampToValueAtTime(overtone.amp * 0.4, now + 0.006); // 6ms attack time
+            // Dynamic attack for rich velocity simulation - slightly softened (15ms) for warm pop-free entry
+            oscGain.gain.linearRampToValueAtTime(overtone.amp * 0.4, now + 0.015);
             oscGain.gain.exponentialRampToValueAtTime(0.0001, now + decayTime);
             
             osc.connect(oscGain);
