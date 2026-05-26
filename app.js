@@ -272,16 +272,17 @@ class Voice {
     }
     
     triggerGrandPiano(now) {
-        // Grand Piano - Pure Decaying String Resonance (Removed hammer click for warm clean tone)
+        // Grand Piano - Crystal Clear & Sparkling String Resonance (Brightened high harmonics)
         
-        // Multiphonic Overtones & Micro-detuning (Authentic Intonation)
-        // Acoustic piano strings are slightly detuned (stretched tuning)
-        // We use 3 oscillators with micro cents detune to create this rich texture
+        // Multiphonic Overtones & Micro-detuning (Bright clear intonation)
+        // Added 5th and 6th harmonics to generate a sparkling, bell-like high clarity (맑고 명료한 음색)
         const overtones = [
-            { ratio: 1.0,  amp: 1.0,  detune: 0 },       // Fundamental
-            { ratio: 2.0,  amp: 0.45, detune: 2.5 },     // Octave (slightly sharp)
-            { ratio: 3.0,  amp: 0.18, detune: -1.8 },    // Perfect 5th (slightly flat)
-            { ratio: 4.0,  amp: 0.08, detune: 3.0 }      // Double Octave
+            { ratio: 1.0,  amp: 1.0,  detune: 0 },       // Fundamental (Warm body)
+            { ratio: 2.0,  amp: 0.58, detune: 1.8 },     // Octave (Bright clarity)
+            { ratio: 3.0,  amp: 0.28, detune: -1.2 },    // Perfect 5th (Clean mid-highs)
+            { ratio: 4.0,  amp: 0.16, detune: 2.4 },     // Double Octave (Sparkle)
+            { ratio: 5.0,  amp: 0.08, detune: -0.8 },    // Major 3rd (High crystalline sheen)
+            { ratio: 6.0,  amp: 0.05, detune: 1.5 }      // Octave + 5th (Bell-like detail)
         ];
         
         // Adjust decay based on note pitch: high keys decay faster
@@ -297,8 +298,8 @@ class Voice {
             
             const oscGain = this.ctx.createGain();
             oscGain.gain.setValueAtTime(0, now);
-            // Dynamic attack for rich velocity simulation - slightly softened (15ms) for warm pop-free entry
-            oscGain.gain.linearRampToValueAtTime(overtone.amp * 0.4, now + 0.015);
+            // Attack tuned to 10ms for immediate articulation (명료함) while avoiding pops
+            oscGain.gain.linearRampToValueAtTime(overtone.amp * 0.4, now + 0.010);
             oscGain.gain.exponentialRampToValueAtTime(0.0001, now + decayTime);
             
             osc.connect(oscGain);
