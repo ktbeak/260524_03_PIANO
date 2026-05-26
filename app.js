@@ -199,9 +199,9 @@ function generateImpulseResponse() {
         let randL = Math.random() * 2 - 1;
         let randR = Math.random() * 2 - 1;
         
-        // Correlate channels slightly to keep central focus, but wide tails
-        const correlatedL = randL * 0.7 + randR * 0.3;
-        const correlatedR = randR * 0.7 + randL * 0.3;
+        // Wider stereo presence: less correlation between channels for expansive field feel
+        const correlatedL = randL * 0.88 + randR * 0.12;
+        const correlatedR = randR * 0.88 + randL * 0.12;
         
         leftChannel[i] = correlatedL * decayEnv;
         rightChannel[i] = correlatedR * decayEnv;
@@ -274,15 +274,36 @@ class Voice {
     triggerGrandPiano(now) {
         // Grand Piano - Crystal Clear & Sparkling String Resonance (Brightened high harmonics)
         
-        // Multiphonic Overtones & Micro-detuning (Bright clear intonation)
-        // Added 5th and 6th harmonics to generate a sparkling, bell-like high clarity (맑고 명료한 음색)
+        // 1. Setup Crystalline Clarity peaking and highshelf EQ filters inside the voice
+        const clarityFilter = this.ctx.createBiquadFilter();
+        clarityFilter.type = 'peaking';
+        clarityFilter.frequency.setValueAtTime(3000, now); // Boost the 3kHz clarity area
+        clarityFilter.Q.setValueAtTime(1.0, now);
+        clarityFilter.gain.setValueAtTime(4.0, now); // 4dB boost for crisp presence
+
+        const presenceFilter = this.ctx.createBiquadFilter();
+        presenceFilter.type = 'highshelf';
+        presenceFilter.frequency.setValueAtTime(5500, now); // Brighten high frequencies
+        presenceFilter.gain.setValueAtTime(3.5, now); // 3.5dB boost for air and crystalline sheen
+
+        // Connect filters in series
+        clarityFilter.connect(presenceFilter);
+        presenceFilter.connect(this.voiceGainNode);
+
+        // 2. Multiphonic Overtones & Enhanced Unison Detuning (Rich Intonation)
+        // We model a real piano's unison strings by duplicating the fundamental with slight detune
+        // This generates organic phase beats (chorus) which makes the intonation incredibly alive!
         const overtones = [
-            { ratio: 1.0,  amp: 1.0,  detune: 0 },       // Fundamental (Warm body)
-            { ratio: 2.0,  amp: 0.58, detune: 1.8 },     // Octave (Bright clarity)
-            { ratio: 3.0,  amp: 0.28, detune: -1.2 },    // Perfect 5th (Clean mid-highs)
-            { ratio: 4.0,  amp: 0.16, detune: 2.4 },     // Double Octave (Sparkle)
-            { ratio: 5.0,  amp: 0.08, detune: -0.8 },    // Major 3rd (High crystalline sheen)
-            { ratio: 6.0,  amp: 0.05, detune: 1.5 }      // Octave + 5th (Bell-like detail)
+            // Fundamental unison (Two strings detuned to create lively acoustic intonation)
+            { ratio: 1.0,  amp: 0.60, detune: -1.8, type: 'triangle' }, // Unison string A
+            { ratio: 1.0,  amp: 0.60, detune: 1.8,  type: 'triangle' }, // Unison string B
+            
+            // Sparkling High Harmonics
+            { ratio: 2.0,  amp: 0.58, detune: 3.2,  type: 'sine' },     // Octave (with stretch tuning)
+            { ratio: 3.0,  amp: 0.28, detune: -2.0, type: 'sine' },     // Perfect 5th
+            { ratio: 4.0,  amp: 0.16, detune: 3.5,  type: 'sine' },     // Double Octave
+            { ratio: 5.0,  amp: 0.08, detune: -1.5, type: 'sine' },     // Major 3rd
+            { ratio: 6.0,  amp: 0.05, detune: 2.8,  type: 'sine' }      // Octave + 5th
         ];
         
         // Adjust decay based on note pitch: high keys decay faster
@@ -291,19 +312,19 @@ class Voice {
         
         overtones.forEach(overtone => {
             const osc = this.ctx.createOscillator();
-            // Combination of sine and triangle for a warm but crisp acoustic pluck
-            osc.type = overtone.ratio === 1 ? 'triangle' : 'sine';
+            osc.type = overtone.type;
             osc.frequency.setValueAtTime(this.freq * overtone.ratio, now);
             osc.detune.setValueAtTime(overtone.detune, now);
             
             const oscGain = this.ctx.createGain();
             oscGain.gain.setValueAtTime(0, now);
-            // Attack tuned to 10ms for immediate articulation (명료함) while avoiding pops
+            // Attack tuned to 10ms for immediate crisp articulation
             oscGain.gain.linearRampToValueAtTime(overtone.amp * 0.4, now + 0.010);
             oscGain.gain.exponentialRampToValueAtTime(0.0001, now + decayTime);
             
             osc.connect(oscGain);
-            oscGain.connect(this.voiceGainNode);
+            // Connect to clarityFilter instead of directly to voiceGainNode
+            oscGain.connect(clarityFilter);
             osc.start(now);
             
             this.oscillators.push(osc);
